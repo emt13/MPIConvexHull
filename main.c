@@ -16,9 +16,14 @@ int** data; //has 2 rows, used to map coordinates
 	    //y:    [a][b][c][d][e][f][g]...
 long long data_size;
 
-long long* centers;  // contains index in data of cluster center
-			   // index: 0  1  2   3   ... num_clusters
-			   //       [5][7][12][24] ...    [..]
+int** centers; // like data**
+			   // index: 0  1  2  3  ... num_clusters
+			   // x:    [a][b][c][d] ...
+			   // y:	[a][b][c][d] ...
+			   
+			   
+int* membership; //has indexing equal to that of data**
+				 //each value corresponds to an index in centers
 
 void allocate_data(long long points_per_rank);
 
@@ -48,7 +53,7 @@ int main(int argc, char** argv){
 
 	//start computing k cluster
 	
-	
+	k_cluster();
 
 
 	
@@ -56,6 +61,47 @@ int main(int argc, char** argv){
 
 	return 0;
 }
+
+void k_cluster(){
+	float delta = 0.0;
+	float threshold = 0.001
+	float distance;
+	float distance_min = -1.0;
+	
+	int i=0, j=0;
+	int shortest;
+	
+	while (delta/data_size > threshold){
+		delta = 0.0;
+		for (i = 0; i<data_size; i++){
+			for (j=0; j<num_clusters; j++){
+				distance = point_distance(data[i], centers[j]);
+				if (distance < distance_min || distance_min == -1.0){
+					distance_min = distance;
+					shortest = j;
+				}
+			}
+			if (membership[i] != shortest){
+				delta = delta +1;
+				membership[i] = shortest;
+			}
+			
+			/*calculate new clusters*/
+			
+		}
+		for (j=0; j< num_clusters; j++){
+			
+		}
+		
+	}
+	
+	
+}
+
+
+
+
+
 
 void print_data(){
 	int i;
@@ -86,7 +132,12 @@ void allocate_data(long long points_per_rank){
 	centers = malloc(num_clusters * sizeof(long long));
 	//start cluster centers at first num_clusters points
 	for (i=0; i < num_clusters; i++){
-		centers[i] = i; 
+		centers[i] = data[i]; 
+	}
+	
+	membership = malloc(data_size * sizeof(int));
+	for (i=0; i<data_size; i++){
+		membership[i] = find_nearest_cluster(i);
 	}
 	
 }
@@ -103,25 +154,25 @@ int find_nearest_cluster(long long index){
 
     /* find the cluster id that has min distance to object */
     cluster_id    = 0;
-    min_dist = point_distance(index, centers[0]);
+    min_dist = point_distance(data[index], centers[0]);
 
     for (i=1; i<num_clusters; i++) {
-        dist = point_distance(index, clusters[i]);
+        dist = point_distance(data[index], centers[i]);
         if (dist < min_dist) { /* find the min and its array index */
             min_dist = dist;
-            cluster_id    = i;
+            cluster_id = i;
         }
     }
     return(cluster_id);
 	
 }
 
-//finds distance between two points, indices are places in data**
-float point_distance(long long index1, long long index2){
+//finds distance between point and center
+float point_distance(int* point, int* center){
 	float result = 0;
 	
-	result += (data[0][index1] - data[0][index2]) * (data[0][index1] - data[0][index2]);
-	result += (data[1][index1] - data[1][index2]) * (data[1][index1] - data[1][index2]);
+	result += (point[0] - center[0]) * (point[0] - center[0]);
+	result += (point[1] - center[1]) * (point[1] - center[1]);
 	
 	return result;
 }
