@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <mpi.h>
-#include <clcg4.h>
+#include "clcg4.h"
 
 int rank;
 int comm_size;
@@ -16,10 +16,17 @@ int** data; //has 2 rows, used to map coordinates
 	    //y:    [a][b][c][d][e][f][g]...
 long long data_size;
 
-int** centers; // like data**
+float** centers; // like data**
 			   // index: 0  1  2  3  ... num_clusters
 			   // x:    [a][b][c][d] ...
 			   // y:	[a][b][c][d] ...
+			   
+int** new_centers; //used when centers are changed
+				   // index:         0  1  2  3  ... num_clusters
+				   // sum x values: [a][b][c][d] ...
+				   // sum y values: [a][b][c][d] ...
+				   // total values: [a][b][c][d] ...
+
 			   
 			   
 int* membership; //has indexing equal to that of data**
@@ -28,6 +35,10 @@ int* membership; //has indexing equal to that of data**
 void allocate_data(long long points_per_rank);
 
 void print_data();
+
+void k_cluster();
+
+float point_distance(int* point, float* center);
 
 int main(int argc, char** argv){
 
@@ -64,7 +75,7 @@ int main(int argc, char** argv){
 
 void k_cluster(){
 	float delta = 0.0;
-	float threshold = 0.001
+	float threshold = 0.001;
 	float distance;
 	float distance_min = -1.0;
 	
@@ -86,11 +97,16 @@ void k_cluster(){
 				membership[i] = shortest;
 			}
 			
-			/*calculate new clusters*/
-			
+			new_centers[shortest][0] += data[i][0];
+			new_centers[shortest][1] += data[i][1];
+			new_centers[shortest][2] += 1;			
 		}
-		for (j=0; j< num_clusters; j++){
-			
+		for (j=0; j<num_clusters; j++){
+			centers[j][0] = 1.0*new_centers[j][0]/new_centers[j][2];
+			centers[j][1] = 1.0*new_centers[j][1]/new_centers[j][2];
+			new_centers[j][0] = 0;
+			new_centers[j][1] = 0;
+			new_centers[j][2] = 0;
 		}
 		
 	}
@@ -117,29 +133,30 @@ void allocate_data(long long points_per_rank){
 
 	data_size = points_per_rank;
 
-	data = malloc(2 * sizeof(int*));
-	
-	data[0] = malloc(data_size * sizeof(int));
-	data[1] = malloc(data_size * sizeof(int));
+	data = malloc(data_size * sizeof(int*));
 
 	//input the random numbers for x and y coordinates
 	int i;
 	for(i = 0; i < data_size; i++){
-		data[0][i] = GenVal(rank) * x_bound;
-		data[1][i] = GenVal(rank) * y_bound;
+		data[i] = malloc(2 * sizeof(int));
+		data[i][0] = GenVal(rank) * x_bound;
+		data[i][1] = GenVal(rank) * y_bound;
 	}	
 	
-	centers = malloc(num_clusters * sizeof(long long));
+	centers = malloc(num_clusters * sizeof(float*));
+	new_centers = malloc(num_clusters * sizeof(int*));
 	//start cluster centers at first num_clusters points
 	for (i=0; i < num_clusters; i++){
-		centers[i] = data[i]; 
+		centers[i] = malloc(2 * sizeof(float));
+		new_centers = calloc(3, sizeof(int));
+		centers[i][0] = data[i][0];
+		centers[i][1] = data[i][1];
 	}
 	
 	membership = malloc(data_size * sizeof(int));
 	for (i=0; i<data_size; i++){
 		membership[i] = find_nearest_cluster(i);
 	}
-	
 }
 
 
@@ -168,7 +185,7 @@ int find_nearest_cluster(long long index){
 }
 
 //finds distance between point and center
-float point_distance(int* point, int* center){
+float point_distance(int* point, float* center){
 	float result = 0;
 	
 	result += (point[0] - center[0]) * (point[0] - center[0]);
