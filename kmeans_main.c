@@ -15,6 +15,7 @@
 /* Necessary includes */
 #include <unistd.h>
 
+#include "clcg4.h"
 #include "kmeans_alg.h"
 
 /* Global debug variable */
@@ -41,6 +42,65 @@ void usage(char* argv0, float threshold)
     fprintf( stderr, help, argv0, threshold );
 }
 
+/* Method: generatePoints
+ *
+ * @param numPoints - the local number of points
+ * @param numCoords - the number of coordinates
+ * @param globalNumPoints - the global number of points
+ * @param points - a local array of input point values [numPoints][numCoords]
+ * @param rank - the MPI rank of the current process
+ *
+ * @remarks Generate the point values on a hypercube bounded by globalNumPoints.
+ */
+void generatePoints( size_t numPoints
+                   , size_t numCoords
+                   , size_t globalNumPoints
+                   , float** points
+                   , int rank )
+{
+    int i, j;
+    for (i = 0; i < numPoints; ++i)
+    {
+        for (j = 0; j < numCoords; ++j)
+        {
+            points[i][j] = GenVal(rank) * globalNumPoints;
+        }
+    }
+}
+
+/* Method: generateInitialClusters
+ *
+ * @param numClusters - the number of clusters to use
+ * @param numCoords - the number of coordinates
+ * @param globalNumPoints - the global number of points
+ * @return clusters - the array for all cluster center locations [numClusters][numCoords]
+ * @param rank - the MPI rank of the current process
+ *
+ * @remarks Generate the initial cluster locations on a hypercube bounded by
+ *          globalNumPoints. Note that these clusters are the same across all
+ *          processes!
+ */
+void generateInitialClusters( size_t numClusters
+                            , size_t numCoords
+                            , size_t globalNumPoints
+                            , float** clusters
+                            , int rank )
+{
+    int i, j;
+    if ( rank == 0 )
+    {
+        for (i = 0; i < numClusters; ++i)
+        {
+            for (j = 0; j < numCoords; ++j)
+            {
+                clusters[i][j] = GenVal(0) * globalNumPoints;
+            }
+        }
+    }
+
+    MPI_Bcast( clusters[0], numClusters * numCoords, MPI_FLOAT, 0, MPI_COMM_WORLD);
+}
+
 /* Method: allocateVarsMain
  *
  * @param numPoints - the local number of points
@@ -59,6 +119,8 @@ void allocateVarsMain( size_t numPoints
                      , float** clusters
                      , size_t* membership )
 {
+    int i;
+
     /* Initialize the points[][]. The array is not actually 2D,
      * but is 1D. However, to index it as 2D, a layer of pointers
      * is used for the rows. This array is the same across all
@@ -113,9 +175,10 @@ void deallocateVarsMain( float** points
     free( membership );
 }
 
+/* Method: main
+ */
 int main(int argc, char** argv)
 {
-    int i;
     int opt;                            /* For getopt() */
     extern char* optarg;                /* For getopt() */
     int isOutputTiming, isPrintUsage;   /* Important bools */
@@ -142,6 +205,12 @@ int main(int argc, char** argv)
 
     MPI_Comm_size( MPI_COMM_WORLD, &nproc );
     MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+
+    // Initialize the RNG streams
+    InitDefault();
+
+    // Set the RNG seed
+    SetInitialSeed( {MPI_Wtime(), MPI_Wtime(), MPI_Wtime(), MPI_Wtime()} );
 
     while ( ( opt=getopt(argc,argv,"p:n:c:t:doh") ) != EOF )
     {
@@ -204,10 +273,10 @@ int main(int argc, char** argv)
     }
 
     /* Get a set of points for a particular MPI process */
-    /*++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+    generatePoints( numPoints, numCoords, globalNumPoints, points, rank );
 
     /* Get the initial clusters */
-    /*++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+    generateInitialClusters( numClusters, numCoords, clusters);
 
     /* Timing information */
     timing              = MPI_Wtime();
@@ -236,11 +305,11 @@ int main(int argc, char** argv)
         if (rank == 0)
         {
             printf("\nPerforming **** Simple Kmeans  (MPI) ****\n");
-            printf("Num of processes = %d\n", nproc);
-            printf("globalNumPoints  = %d\n", globalNumPoints);
-            printf("numCoords        = %d\n", numCoords);
-            printf("numClusters      = %d\n", numClusters);
-            printf("threshold        = %.4f\n", threshold);
+            printf("Num of processes   = %d\n", nproc);
+            printf("globalNumPoints    = %d\n", globalNumPoints);
+            printf("numCoords          = %d\n", numCoords);
+            printf("numClusters        = %d\n", numClusters);
+            printf("threshold          = %.4f\n", threshold);
             printf("Computation timing = %10.4f sec\n", maxClusteringTiming);
         }
     }
