@@ -167,7 +167,7 @@ void updateClusters( numClusters
     }
 }
 
-/* Method: allocateVars
+/* Method: allocateVarsAlg
  *
  * @param numPoints - the local number of points
  * @param numCoords - the number of coordinates
@@ -179,13 +179,13 @@ void updateClusters( numClusters
  *
  * @remarks Allocate necessary variables that are local to the current MPI rank.
  */
-void allocateVars( size_t numPoints
-                 , size_t numCoords
-                 , size_t numClusters
-                 , size_t* membership
-                 , size_t* clusterSize
-                 , size_t* localClusterSize
-                 , float** localClusters )
+void allocateVarsAlg( size_t numPoints
+                    , size_t numCoords
+                    , size_t numClusters
+                    , size_t* membership
+                    , size_t* clusterSize
+                    , size_t* localClusterSize
+                    , float** localClusters )
 {
     size_t i;
 
@@ -222,7 +222,7 @@ void allocateVars( size_t numPoints
     }
 }
 
-/* Method: deallocateVars
+/* Method: deallocateVarsAlg
  *
  * @param clusterSize - the global size of each cluster [numClusters]
  * @param localClusterSize - the local size of each cluster [numClusters]
@@ -230,9 +230,9 @@ void allocateVars( size_t numPoints
  *
  * @remarks Deallocate necessary variables that are local to the current MPI rank.
  */
-void deallocateVars( size_t* clusterSize
-                   , size_t* localClusterSize
-                   , float** localClusters )
+void deallocateVarsAlg( size_t* clusterSize
+                      , size_t* localClusterSize
+                      , float** localClusters )
 {
     free( localClusters[0] ); /* localClusters[][] is actually 1D */
     free( localClusters );
@@ -279,8 +279,8 @@ void kmeansClustering( float** points
     }
 
     /* Initialize membership[], cluster sizes, and localClusters[][] */
-    allocateVars( numPoints, numCoords, numClusters, membership
-                , clusterSize, localClusterSize, localClusters );
+    allocateVarsAlg( numPoints, numCoords, numClusters, membership
+                   , clusterSize, localClusterSize, localClusters );
 
     /* Get the total number of points */
     MPI_Allreduce( &numPoints, &globalNumPoints, 1, MPI_INT, MPI_SUM, comm );
@@ -320,5 +320,5 @@ void kmeansClustering( float** points
     } while ( delta > threshold && ++loop < 1000 );
 
     /* Deallocate all local variables */
-    deallocateVars( clusterSize, localClusterSize, localClusters );
+    deallocateVarsAlg( clusterSize, localClusterSize, localClusters );
 }
