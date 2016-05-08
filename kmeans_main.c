@@ -4,6 +4,8 @@
  *   @description This is the main file for the k-means clustering
  *                algorithm. It initializes a large array of random
  *                points and splits the workload among all MPI ranks.
+ *                The initial clusters and the data points are generated
+ *                randomly using the clcg4 library.
  *
  *   @authors Alex Vargas
  *            Evan Thompson
