@@ -3,6 +3,7 @@
 #   @file Makefile
 #   @description Makefile for programs running the k-means clustering
 #                algorithm.
+#
 #   @authors Alex Vargas
 #            Evan Thompson
 #            Alexander Soloviev

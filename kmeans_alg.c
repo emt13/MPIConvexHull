@@ -1,7 +1,16 @@
 /************************************************************************
  *   @project Final Project - Parallel Programming and Computing
  *   @file kmeans_alg.c
- *   @description This program
+ *   @description This is an implementation of the k-means clustering
+ *                algorithm. The program inputs an array of N points,
+ *                each with M coordinates and performs clustering for
+ *                the specified number of clusters (K). The results are
+ *                provided in two output arrays:
+ *                1.) An array of size [K][M] with the cluster centers
+ *                2.) An array of size [N] called membership that stores
+ *                    the membership of each point to the cluster center
+ *                    array
+ *
  *   @authors Alex Vargas
  *            Evan Thompson
  *            Alexander Soloviev
@@ -10,10 +19,7 @@
  ***********************************************************************/
 
 /* Necessary includes */
-#include <stdlib.h>
-#include <stdio.h>
-
-#include <mpi.h>
+#include "kmeans_alg.h"
 
 /* Method: pointDistance2
  *
@@ -242,8 +248,8 @@ void deallocateVars( size_t* clusterSize
  * @param numClusters - the number of clusters to use
  * @param threshold - the threshold value for computing the cluster centers
  * @param comm - the MPI communicator
- * @return membership - the membership array of a point to a cluster [numPoints]
  * @return clusters - the array for all cluster center locations [numClusters][numCoords]
+ * @return membership - the membership array of a point to a cluster [numPoints]
  *
  * @remarks Perform the K-Means Clustering Algorithm with the specified input point
  *          values, number of clusters, and computational threshold.
@@ -257,6 +263,7 @@ void kmeansClustering( float** points
                      , float** clusters
                      , size_t* membership )
 {
+    int rank;                   /* MPI rank */
     size_t loop=0;              /* The number of loop iterations */
     float delta;                /* The % of points that change their clusters */
     float globalDelta;          /* Global delta for all MPI ranks */
@@ -264,6 +271,12 @@ void kmeansClustering( float** points
     size_t* clusterSize;        /* The global size of each cluster [numClusters] */
     size_t* localClusterSize;   /* The local size of each cluster [numClusters] */
     float** localClusters;      /* Local cluster centers [numClusters][numCoords] */
+    extern int _debug;          /* Debug information */
+
+    if (_debug)
+    {
+        MPI_Comm_rank( comm, &rank );
+    }
 
     /* Initialize membership[], cluster sizes, and localClusters[][] */
     allocateVars( numPoints, numCoords, numClusters, membership
@@ -271,6 +284,12 @@ void kmeansClustering( float** points
 
     /* Get the total number of points */
     MPI_Allreduce( &numPoints, &globalNumPoints, 1, MPI_INT, MPI_SUM, comm );
+
+    if (_debug)
+    {
+        printf( "%2d: numPoints=%d globalNumPoints=%d numClusters=%d numCoords=%d\n"
+              , rank, numPoints, globalNumPoints, numClusters, numCoords );
+    }
 
     /* Iterate until below threshold or loop iterations exceeded */
     do

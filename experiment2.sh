@@ -4,6 +4,7 @@
 #   @file experiment1.sh
 #   @description This is a strong scaling experiment that uses 32 MPI
 #                ranks per Blue Gene/Q node.
+#
 #   @authors Alex Vargas
 #            Evan Thompson
 #            Alexander Soloviev
