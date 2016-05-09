@@ -15,7 +15,7 @@
  ***********************************************************************/
 
 /* Necessary includes */
-#include <hwi/include/bqc/A2_inline.h>
+#include <hwi/include/bqc/A2_inlines.h>
 #include <unistd.h>
 
 #include "clcg4.h"
