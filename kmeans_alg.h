@@ -20,13 +20,13 @@
 #include <mpi.h>
 
 void kmeansClustering( float** points
-                     , size_t numPoints
-                     , size_t numCoords
-                     , size_t numClusters
-                     , float threshold
-                     , MPI_Comm comm
-                     , float** clusters
-                     , size_t* membership );
+					 , size_t numPoints
+					 , size_t numCoords
+					 , size_t numClusters
+					 , float threshold
+					 , MPI_Comm comm
+					 , float** clusters
+					 , size_t* membership );
 
 extern int _debug;
 

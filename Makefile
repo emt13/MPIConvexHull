@@ -16,10 +16,10 @@ WRNFLAGS = -Wall
 DBGFLAGS = -_DEBUG
 OPTFLAGS = -O3
 
-BGQFLAGS = $(INCFLAGS) $(WRNFLAGS)
-MPIFLAGS = $(INCFLAGS) $(WRNFLAGS) $(OPTFLAGS)
+BGQFLAGS = $(INCFLAGS)
+MPIFLAGS = $(INCFLAGS) $(OPTFLAGS)
 
 all: clcg4.h clcg4.c kmeans_alg.c kmeans_main.c
-    module load xl; \
+	module load xl; \
 	bgxlc $(BGQFLAGS) -c clcg4.c -o clcg4.o; \
 	mpixlc $(MPIFLAGS) kmeans_alg.c kmeans_main.c clcg4.o -o kmeans_run.xl
