@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #***********************************************************************/
 #   @project Final Project - Parallel Programming and Computing
 #   @file experiment1.sh
@@ -11,8 +11,6 @@
 #            Jim Olyha
 #
 #***********************************************************************/
-
-make;
 
 # Small partitions
 for j in {0..6}
