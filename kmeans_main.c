@@ -15,10 +15,14 @@
  ***********************************************************************/
 
 /* Necessary includes */
+#include <hwi/include/bqc/A2_inline.h>
 #include <unistd.h>
 
 #include "clcg4.h"
 #include "kmeans_alg.h"
+
+/* Timing defines */
+#define CYCLES_PER_SEC 1600000000
 
 /* Global debug variable */
 int _debug;
@@ -33,7 +37,7 @@ int _debug;
 void usage(char* argv0, float threshold)
 {
 	char* help =
-"Usage: %s [switches] -n num_clusters\n"
+"Usage: %s [switches] -p numPoints -n numClusters -c numCoords\n"
 "       -p numPoints   : number of points per MPI process (N must be > 0)\n"
 "       -n numClusters : number of clusters (K must be > 1)\n"
 "       -c numCoords   : number of coordinates (M must be > 0)\n"
@@ -190,7 +194,8 @@ int main(int argc, char** argv)
 	float** clusters;                   /* Cluster center locations [numClusters][numCoords] */
 	size_t* membership;                 /* Membership of a point to a cluster [numPoints] */
 	float threshold;                    /* Threshold value for computing the cluster centers */
-	double timing, clusteringTiming;    /* Timing information */
+	unsigned long long startTime, endTime;
+	double clusteringTiming;			/* Timing information */
 	int rank, nproc;                    /* MPI information */
 
 	/* Default values */
@@ -282,16 +287,15 @@ int main(int argc, char** argv)
 							 clusters, rank);
 
 	/* Timing information */
-	timing              = MPI_Wtime();
-	clusteringTiming    = timing;
+	startTime = GetTimeBase();
 
 	/* Perform the kmeans algorithm */
 	kmeansClustering( points, numPoints, numCoords, numClusters
 					, threshold, MPI_COMM_WORLD, clusters, membership);
 
 	/* Timing information */
-	timing           = MPI_Wtime();
-	clusteringTiming = timing - clusteringTiming;
+	endTime = GetTimeBase();
+	clusteringTiming = (double) (endTime - startTime) /  CYCLES_PER_SEC;
 
 	/* Deallocate used variables */
 	deallocateVarsMain( points, clusters, membership );
@@ -313,7 +317,7 @@ int main(int argc, char** argv)
 			printf("numCoords          = %d\n", numCoords);
 			printf("numClusters        = %d\n", numClusters);
 			printf("threshold          = %.4f\n", threshold);
-			printf("Computation timing = %10.4f sec\n", maxClusteringTiming);
+			printf("Computation timing = %10.4f sec\n\n", maxClusteringTiming);
 		}
 	}
 
