@@ -57,20 +57,20 @@ float pointDistance2( size_t numCoords
  */
 size_t findClosestCluster( size_t numClusters
 						 , size_t numCoords
-						 , float* point
-						 , float** clusters )
+						 , float** point
+						 , float*** clusters )
 {
 	size_t i, index;
 	float dist, minDist;
 
 	/* Initialize the minDist */
 	index = 0;
-	minDist = pointDistance2( numCoords, point, clusters[0] );
+	minDist = pointDistance2( numCoords, *point, (*clusters)[0] );
 
 	/* Find a cluster with a smaller distance to the point */
 	for (i = 1; i < numClusters; i++)
 	{
-		dist = pointDistance2( numCoords, point, clusters[i] );
+		dist = pointDistance2( numCoords, *point, (*clusters)[i] );
 
 		/* For comparisons, the square root is superfluous */
 		if ( dist < minDist )
@@ -97,14 +97,14 @@ size_t findClosestCluster( size_t numClusters
  * @remarks Find the local cluster sums, which are the sums of the points belonging
  *          to a particular cluster. Also update the membership[] and delta value.
  */
-void getLocalClusterSums( float** points
+void getLocalClusterSums( float*** points
 						, size_t numPoints
 						, size_t numCoords
 						, size_t numClusters
-						, size_t* membership
-						, float** clusters
-						, size_t* localClusterSize
-						, float** localClusters
+						, size_t** membership
+						, float*** clusters
+						, size_t** localClusterSize
+						, float*** localClusters
 						, float* delta )
 {
 	size_t i, j, index;
@@ -112,23 +112,23 @@ void getLocalClusterSums( float** points
 	for (i = 0; i < numPoints; ++i)
 	{
 		/* Find the array index of the closest cluster center */
-		index = findClosestCluster( numClusters, numCoords, points[i], clusters );
+		index = findClosestCluster( numClusters, numCoords, &(*points)[i], clusters );
 
 		/* If the membership of a point changed, delta must be incremented */
-		if ( membership[i] != index )
+		if ( (*membership)[i] != index )
 		{
 			*delta += 1.0;
 		}
 
 		/* Assign the membership to point i */
-		membership[i] = index;
+		(*membership)[i] = index;
 
 		/* Update the local cluster centers by getting the sum of all
 		 * internal objects. The centroid is computed by averaging this sum. */
-		++localClusterSize[index];
+		++(*localClusterSize)[index];
 		for (j = 0; j < numCoords; ++j)
 		{
-			localClusters[index][j] += points[i][j];
+			(*localClusters)[index][j] += (*points)[i][j];
 		}
 	}
 }
@@ -147,23 +147,23 @@ void getLocalClusterSums( float** points
  */
 void updateClusters( size_t numClusters
 				   , size_t numCoords
-				   , size_t* clusterSize
-				   , float** clusters
-				   , size_t* localClusterSize
-				   , float** localClusters )
+				   , size_t** clusterSize
+				   , float*** clusters
+				   , size_t** localClusterSize
+				   , float*** localClusters )
 {
 	size_t i, j;
 	for (i = 0; i < numClusters; ++i)
 	{
 		for (j = 0; j < numCoords; ++j)
 		{
-			if ( clusterSize[i] > 1 )
+			if ( (*clusterSize)[i] > 1 )
 			{
-				clusters[i][j] /= clusterSize[i];
+				(*clusters)[i][j] /= (*clusterSize)[i];
 			}
-			localClusters[i][j] = 0.0; /* Reset local clusters */
+			(*localClusters)[i][j] = 0.0; /* Reset local clusters */
 		}
-		localClusterSize[i] = 0; /* Reset local cluster sizes */
+		(*localClusterSize)[i] = 0; /* Reset local cluster sizes */
 	}
 }
 
@@ -182,10 +182,10 @@ void updateClusters( size_t numClusters
 void allocateVarsAlg( size_t numPoints
 					, size_t numCoords
 					, size_t numClusters
-					, size_t* membership
-					, size_t* clusterSize
-					, size_t* localClusterSize
-					, float** localClusters )
+					, size_t** membership
+					, size_t** clusterSize
+					, size_t** localClusterSize
+					, float*** localClusters )
 {
 	size_t i;
 
@@ -193,32 +193,32 @@ void allocateVarsAlg( size_t numPoints
 	for (i = 0; i < numPoints; ++i)
 	{
 		/* Note: numClusters is an intended invalid index */
-		membership[i] = numClusters;
+		(*membership)[i] = numClusters;
 	}
 
 	/* Initialize the clusterSize[] */
-	clusterSize = (size_t*) calloc( numClusters, sizeof(size_t) );
-	assert( clusterSize != NULL );
+	*clusterSize = (size_t*) calloc( numClusters, sizeof(size_t) );
+	assert( *clusterSize != NULL );
 
 	/* Initialize the localClusterSize[] */
-	localClusterSize = (size_t*) calloc( numClusters, sizeof(size_t) );
-	assert( localClusterSize != NULL );
+	*localClusterSize = (size_t*) calloc( numClusters, sizeof(size_t) );
+	assert( *localClusterSize != NULL );
 
 	/* Initialize the localClusters[][]. The array is not actually 2D,
 	 * but is 1D so that MPI_Allreduce can be used on it. However,
 	 * to index it as 2D, a layer of pointers is used for the rows.
 	 * The full array is stored in localClusters[0].
 	 */
-	localClusters = (float**) malloc( numClusters * sizeof(float*) );
-	assert( localClusters != NULL );
+	*localClusters = (float**) malloc( numClusters * sizeof(float*) );
+	assert( *localClusters != NULL );
 
-	localClusters[0] = (float*) calloc( numClusters * numCoords, sizeof(float) );
-	assert( localClusters[0] != NULL );
+	(*localClusters)[0] = (float*) calloc( numClusters * numCoords, sizeof(float) );
+	assert( (*localClusters)[0] != NULL );
 
 	for (i = 1; i < numClusters; ++i)
 	{
 		/* Now connect the outer layer of pointers to the internal 1D array */
-		localClusters[i] = localClusters[i-1] + numCoords;
+		(*localClusters)[i] = (*localClusters)[i-1] + numCoords;
 	}
 }
 
@@ -230,14 +230,17 @@ void allocateVarsAlg( size_t numPoints
  *
  * @remarks Deallocate necessary variables that are local to the current MPI rank.
  */
-void deallocateVarsAlg( size_t* clusterSize
-					  , size_t* localClusterSize
-					  , float** localClusters )
+void deallocateVarsAlg( size_t** clusterSize
+					  , size_t** localClusterSize
+					  , float*** localClusters )
 {
-	free( localClusters[0] ); /* localClusters[][] is actually 1D */
-	free( localClusters );
-	free( localClusterSize );
-	free( clusterSize );
+	free( (*localClusters)[0] ); /* localClusters[][] is actually 1D */
+	free( *localClusters );
+	*localClusters = NULL;
+	free( *localClusterSize );
+	*localClusterSize = NULL;
+	free( *clusterSize );
+	*clusterSize = NULL;
 }
 
 /* Method: kmeansClustering
@@ -246,6 +249,7 @@ void deallocateVarsAlg( size_t* clusterSize
  * @param numPoints - the local number of points
  * @param numCoords - the number of coordinates
  * @param numClusters - the number of clusters to use
+ * @param globalNumPoints - the global number of points
  * @param threshold - the threshold value for computing the cluster centers
  * @param comm - the MPI communicator
  * @return clusters - the array for all cluster center locations [numClusters][numCoords]
@@ -254,24 +258,24 @@ void deallocateVarsAlg( size_t* clusterSize
  * @remarks Perform the K-Means Clustering Algorithm with the specified input point
  *          values, number of clusters, and computational threshold.
  */
-void kmeansClustering( float** points
+void kmeansClustering( float*** points
 					 , size_t numPoints
 					 , size_t numCoords
 					 , size_t numClusters
+					 , size_t globalNumPoints
 					 , float threshold
 					 , MPI_Comm comm
-					 , float** clusters
-					 , size_t* membership )
+					 , float*** clusters
+					 , size_t** membership )
 {
-	int rank;                   /* MPI rank */
-	size_t loop=0;              /* The number of loop iterations */
-	float delta;                /* The % of points that change their clusters */
-	float globalDelta;          /* Global delta for all MPI ranks */
-	size_t globalNumPoints;     /* The global number of data points */
-	size_t* clusterSize;        /* The global size of each cluster [numClusters] */
-	size_t* localClusterSize;   /* The local size of each cluster [numClusters] */
-	float** localClusters;      /* Local cluster centers [numClusters][numCoords] */
-	extern int _debug;          /* Debug information */
+	int rank;							/* MPI rank */
+	size_t loop = 0;					/* The number of loop iterations */
+	float delta = 0.0;					/* The % of points that change their clusters */
+	float globalDelta = 0.0;			/* Global delta for all MPI ranks */
+	size_t* clusterSize = NULL;			/* The global size of each cluster [numClusters] */
+	size_t* localClusterSize = NULL;	/* The local size of each cluster [numClusters] */
+	float** localClusters = NULL;		/* Local cluster centers [numClusters][numCoords] */
+	extern int _debug;					/* Debug information */
 
 	if (_debug)
 	{
@@ -280,14 +284,11 @@ void kmeansClustering( float** points
 
 	/* Initialize membership[], cluster sizes, and localClusters[][] */
 	allocateVarsAlg( numPoints, numCoords, numClusters, membership
-				   , clusterSize, localClusterSize, localClusters );
-
-	/* Get the total number of points */
-	MPI_Allreduce( &numPoints, &globalNumPoints, 1, MPI_INT, MPI_SUM, comm );
+				   , &clusterSize, &localClusterSize, &localClusters );
 
 	if (_debug)
 	{
-		printf( "%2d: numPoints=%d globalNumPoints=%d numClusters=%d numCoords=%d\n"
+		printf( "%2d: numPoints=%lu globalNumPoints=%lu numClusters=%lu numCoords=%lu\n"
 			  , rank, numPoints, globalNumPoints, numClusters, numCoords );
 	}
 
@@ -299,10 +300,10 @@ void kmeansClustering( float** points
 
 		/* Obtain the local cluster sums, which are stored in localClusters[][] */
 		getLocalClusterSums( points, numPoints, numCoords, numClusters, membership
-						   , clusters, localClusterSize, localClusters, &delta );
+						   , clusters, &localClusterSize, &localClusters, &delta );
 
 		/* Get the global cluster sums by adding the local cluster sums */
-		MPI_Allreduce( localClusters[0], clusters[0], numClusters*numCoords
+		MPI_Allreduce( localClusters[0], (*clusters)[0], numClusters*numCoords
 					 , MPI_FLOAT, MPI_SUM, comm);
 
 		/* Get the global cluster sizes by adding the local cluster sizes */
@@ -310,15 +311,20 @@ void kmeansClustering( float** points
 					 , MPI_INT, MPI_SUM, comm);
 
 		/* Update the cluster centers and reset local variables */
-		updateClusters( numClusters, numCoords, clusterSize, clusters
-					  , localClusterSize, localClusters);
+		updateClusters( numClusters, numCoords, &clusterSize, clusters
+					  , &localClusterSize, &localClusters);
 
 		/* Get the global delta value */
 		MPI_Allreduce( &delta, &globalDelta, 1, MPI_FLOAT, MPI_SUM, comm );
 		delta = globalDelta / globalNumPoints;
 
-	} while ( delta > threshold && ++loop < 1000 );
+	} while ( delta > threshold && ++loop < 700 );
+
+	if (_debug && rank == 0)
+	{
+		printf( "%2d: delta=%f threshold=%f loop=%lu\n", rank, delta, threshold, loop );
+	}
 
 	/* Deallocate all local variables */
-	deallocateVarsAlg( clusterSize, localClusterSize, localClusters );
+	deallocateVarsAlg( &clusterSize, &localClusterSize, &localClusters );
 }
