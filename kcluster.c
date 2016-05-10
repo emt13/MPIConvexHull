@@ -74,15 +74,18 @@ int main(int argc, char** argv){
 }
 
 void k_cluster(){
-	float delta = 0.0;
+	float delta = 0.0, delta_tot=0.0;
 	float threshold = 0.001;
 	float distance;
 	float distance_min = -1.0;
+	long long cluster_size[num_clusters];
+	int x_sum[num_clusters], y_sum[num_clusters];
 	
 	int i=0, j=0;
 	int shortest;
 	
-	while (delta/data_size > threshold){
+	
+	while (delta_tot/data_points > threshold){
 		delta = 0.0;
 		for (i = 0; i<data_size; i++){
 			for (j=0; j<num_clusters; j++){
@@ -101,13 +104,21 @@ void k_cluster(){
 			new_centers[shortest][1] += data[i][1];
 			new_centers[shortest][2] += 1;			
 		}
+		
+		for(j=0; j<num_clusters; j++){
+			MPI_Allreduce(&new_centers[j][2], &cluster_size[j], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+			MPI_Allreduce(&new_centers[j][0], &x_sum[j], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+			MPI_Allreduce(&new_centers[j][1], &y_sum[j], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+		}
+		
 		for (j=0; j<num_clusters; j++){
-			centers[j][0] = 1.0*new_centers[j][0]/new_centers[j][2];
-			centers[j][1] = 1.0*new_centers[j][1]/new_centers[j][2];
+			centers[j][0] = 1.0*x_sum[j]/cluster_size[j];
+			centers[j][1] = 1.0*y_sum[j]/cluster_size[j];
 			new_centers[j][0] = 0;
 			new_centers[j][1] = 0;
 			new_centers[j][2] = 0;
 		}
+		MPI_Allreduce(&delta, &delta_tot, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
 		
 	}
 	
@@ -151,6 +162,8 @@ void allocate_data(long long points_per_rank){
 		new_centers = calloc(3, sizeof(int));
 		centers[i][0] = data[i][0];
 		centers[i][1] = data[i][1];
+		MPI_Bcast(&centers[i][0], 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
+		MPI_Bcast(&centers[i][1], 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
 	}
 	
 	membership = malloc(data_size * sizeof(int));
