@@ -36,7 +36,11 @@ void allocate_data(long long points_per_rank);
 
 void print_data();
 
+void print_centers();
+
 void k_cluster();
+
+int find_nearest_cluster(long long index);
 
 float point_distance(int* point, float* center);
 
@@ -60,17 +64,27 @@ int main(int argc, char** argv){
 	//sets up and generates the data points inside data
 	allocate_data(data_points/(long long)comm_size);
 
-	print_data();
+	//print_data();
 
 	//start computing k cluster
 	
 	k_cluster();
 
-
-	
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0){
+		print_centers();
+	}
 	MPI_Finalize();
 
 	return 0;
+}
+
+void print_centers(){
+	printf("There are %d clusters\n", num_clusters);
+	int i;
+	for(i = 0; i < num_clusters; i++){
+		printf(" %d - (%f, %f)\n", i, centers[i][0], centers[i][1]);
+	}
 }
 
 void k_cluster(){
@@ -82,10 +96,11 @@ void k_cluster(){
 	int x_sum[num_clusters], y_sum[num_clusters];
 	
 	int i=0, j=0;
-	int shortest;
+	int shortest = -1;
 	
-	
-	while (delta_tot/data_points > threshold){
+	int iters = 0;	
+	while (delta_tot/data_points > threshold || iters == 0 ){
+		iters++;
 		delta = 0.0;
 		for (i = 0; i<data_size; i++){
 			for (j=0; j<num_clusters; j++){
@@ -99,12 +114,10 @@ void k_cluster(){
 				delta = delta +1;
 				membership[i] = shortest;
 			}
-			
 			new_centers[shortest][0] += data[i][0];
 			new_centers[shortest][1] += data[i][1];
 			new_centers[shortest][2] += 1;			
 		}
-		
 		for(j=0; j<num_clusters; j++){
 			MPI_Allreduce(&new_centers[j][2], &cluster_size[j], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 			MPI_Allreduce(&new_centers[j][0], &x_sum[j], 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -121,7 +134,7 @@ void k_cluster(){
 		MPI_Allreduce(&delta, &delta_tot, 1, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
 		
 	}
-	
+	printf(" (%d) number of iterations = %d\n", rank, iters);
 	
 }
 
@@ -134,7 +147,7 @@ void print_data(){
 	int i;
 	for(i = 0; i < data_size; i++){
 		if(i != 0 && i % 16 == 0) printf("\n");
-		printf("(%d,%d) ", data[0][i], data[1][i]);
+			printf("(%d,%d) ", data[i][0], data[i][1]);
 	}
 	printf("\n");
 }
@@ -150,8 +163,10 @@ void allocate_data(long long points_per_rank){
 	int i;
 	for(i = 0; i < data_size; i++){
 		data[i] = malloc(2 * sizeof(int));
-		data[i][0] = GenVal(rank) * x_bound;
-		data[i][1] = GenVal(rank) * y_bound;
+		float x = GenVal(rank);
+		float y = GenVal(rank);
+		data[i][0] = x * x_bound * (rank + 1);
+		data[i][1] = y * y_bound * (rank + 1);
 	}	
 	
 	centers = malloc(num_clusters * sizeof(float*));
@@ -159,7 +174,7 @@ void allocate_data(long long points_per_rank){
 	//start cluster centers at first num_clusters points
 	for (i=0; i < num_clusters; i++){
 		centers[i] = malloc(2 * sizeof(float));
-		new_centers = calloc(3, sizeof(int));
+		new_centers[i] = calloc(3, sizeof(int));
 		centers[i][0] = data[i][0];
 		centers[i][1] = data[i][1];
 		MPI_Bcast(&centers[i][0], 1, MPI_FLOAT, 0, MPI_COMM_WORLD);
@@ -169,6 +184,10 @@ void allocate_data(long long points_per_rank){
 	membership = malloc(data_size * sizeof(int));
 	for (i=0; i<data_size; i++){
 		membership[i] = find_nearest_cluster(i);
+	}
+
+	if(rank == 1){
+	//	print_data();
 	}
 }
 
